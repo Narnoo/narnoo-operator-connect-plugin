@@ -2,15 +2,15 @@
 /**
  * Narnoo Operator - Following table.
  **/
-class Narnoo_Connect_Find_Table extends WP_List_Table {
+class Narnoo_Connect_Following_Table extends WP_List_Table {
 
 	function column_default( $item, $column_name ) {
         switch( $column_name ) { 
             case 'title':
             case 'narnoo_id':
-            case 'location':
-            case 'type':
-            case 'modified_date':
+            case 'contact':
+            case 'email':
+            case 'url':
             
                 return $item[ $column_name ];
             default:
@@ -21,20 +21,20 @@ class Narnoo_Connect_Find_Table extends WP_List_Table {
     function column_title( $item ) {
         $actions = array(
             
-         
-            'Connect'        => sprintf( 
+            'Import'        => sprintf( 
                                     '<a href="?%s">%s</a>', 
                                     build_query( 
                                         array(
                                             'page'       => isset( $_REQUEST['page'] ) ? $_REQUEST['page'] : '',
                                             'paged'      => $this->get_pagenum(),
-                                            'action'     => 'connect', 
-                                            'products[]' => $item['narnoo_id'], 
-                                            'narnoo_id'  => $item['narnoo_id'],
+                                            'action'     => 'import', 
+                                            'products[]' => $item['narnoo_id'],  
                                         )
                                     ),
-                                    __( 'Connect', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ) 
-                                ),
+                                    __( 'Import', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ) 
+                                )
+
+            
         );
         return sprintf( 
             '<input type="hidden" name="url%1$s" value="%2$s" /> %3$s <br /> %4$s', 
@@ -56,15 +56,16 @@ class Narnoo_Connect_Find_Table extends WP_List_Table {
             'cb'                => '<input type="checkbox" />',
             'title'             => __( 'Title',         NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ),
             'narnoo_id'         => __( 'Narnoo ID',    NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ),
-            'location'          => __( 'Location',       NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ),
-            'type'              => __( 'Type',  NARNOO_OPERATOR_CONNECT_I18N_DOMAIN )
+            'contact'           => __( 'contact',       NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ),
+            'email'             => __( 'Email',       NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ),
+            'url'               => __( 'Url',       NARNOO_OPERATOR_CONNECT_I18N_DOMAIN )
         );
     }
 
 
     function get_bulk_actions() {
         $actions = array(
-            'Connect'        => __( 'Connect', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN )
+            'Import'        => __( 'Import', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN )
         );
         return $actions;
     }   
@@ -96,19 +97,57 @@ class Narnoo_Connect_Find_Table extends WP_List_Table {
                 return true;
             }
 
-            
-            switch ( $action ) {
-               
-                case 'connect':
+            if ( $action === 'import' ) { 
+                
+                    $action = 'do_import';
+            }
 
-                    if( isset( $_REQUEST['narnoo_id'] ) && !empty( $_REQUEST['narnoo_id'] ) ) {
-                        $request    = Narnoo_Operator_Connect_Helper::init_api();
-                        $response   = $request->followOperator( $_REQUEST['narnoo_id'] );
-                        
-                        echo noc_display_msg( __( "Successfully connected with this operator.", NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ) );
-                    } else {
-                        echo noc_display_msg( __( "Sorry! Something went wrong.", NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ) );
+            switch ( $action ) {
+                // perform import
+                case 'import':                  
+                    ?>
+
+                    <h3><?php _e( 'Import Operator', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ); ?></h3>
+                    <p><?php echo sprintf( __( "Requesting import information for the following %s operator(s):", NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ), $num_ids ); ?></p>
+                    <ol>
+                    <?php
+                    foreach( $product_ids as $id ) {
+                        Narnoo_Operator_Connect_Helper::print_ajax_script_body( $id, 'getProductDetails', array( $id ) );
                     }
+                    ?>
+                    </ol>
+                    <?php 
+                        Narnoo_Operator_Connect_Helper::print_ajax_script_footer( $num_ids, __( 'Back to Operators', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ) );
+
+                    return false;
+
+                    // perform actual import
+                case 'do_import':                   
+                    ?>
+                    <h3><?php _e( 'Import',  NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ); ?></h3>
+                    <p><?php echo sprintf( __( "Requesting import information from Narnoo for the following %s operators(s):", NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ), $num_ids ); ?></p>
+                    <ol>
+                    <?php
+                    foreach( $product_ids as $id ) {
+                        Narnoo_Operator_Connect_Helper::print_ajax_script_body( 
+                            $id, 
+                            'import_operator', //'getProductDetails', 
+                            array( $id ), 
+                            'ID #' . $id ,
+                            'self', 
+                            true
+                        );
+                    }
+                    ?> 
+                    </ol>
+                    <?php 
+                    Narnoo_Operator_Connect_Helper::print_ajax_script_footer( $num_ids, __( 'Back to Operators', NARNOO_OPERATOR_CONNECT_I18N_DOMAIN ) );
+
+                    return false;
+                
+             
+
+                   
             }   // end switch( $action )
         }   // endif ( false !== $action )*/
         
@@ -134,7 +173,7 @@ class Narnoo_Connect_Find_Table extends WP_List_Table {
 
                     try {
                         
-                        $list = $request->find( $current_page );
+                        $list = $request->following( $current_page );
 
                          // print_r( $list );
 
@@ -159,16 +198,16 @@ class Narnoo_Connect_Find_Table extends WP_List_Table {
             $data['total_pages'] = max( 1, intval( 1 ) );//check this..
             foreach ( $list->data as $operators ) {
                 
-                if(empty($operators->details->connected)){
+              if( $operators->details->type == "operator" ){
 
-                    $item['title']              = $operators->details->business;
-                    $item['location']           = $operators->details->location;
+                    $item['title']              = $operators->details->business;                    
                     $item['narnoo_id']          = $operators->details->id;
-                    $item['type']               = ucwords( $operators->details->type );
+                    $item['contact']            = $operators->details->contact;
+                    $item['email']              = $operators->details->email;
+                    $item['url']                = $operators->details->url;
                     $data['items'][]            = $item;
 
-                }
-
+              }
                 
             }
         }
@@ -202,13 +241,7 @@ class Narnoo_Connect_Find_Table extends WP_List_Table {
 	 * Add screen options for find page.
 	 **/
 	static function add_screen_options() {
-		global $narnoo_connect_find_table;
-        $func_type = isset( $_POST['func_type'] ) ? trim( $_POST['func_type'] ) : ( isset( $_GET['func_type'] ) ? trim( $_GET['func_type'] ) : 'list' );
-        switch ( $func_type ) {
-            case 'list':    $narnoo_connect_find_table              = new Narnoo_Connect_Find_Table(); break;
-            case 'search':  $narnoo_connect_find_table              = new Narnoo_Connect_Search_Add_Operators_Table(); break;
-        }
-        //print_r($func_type);
-		//$narnoo_connect_find_table = new Narnoo_Connect_Find_Table();
+		global $narnoo_connect_following_table;
+		$narnoo_connect_following_table = new Narnoo_Connect_Following_Table();
 	}
 }    
